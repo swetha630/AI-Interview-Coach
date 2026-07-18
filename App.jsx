@@ -17,8 +17,10 @@ const [feedback,setFeedback]=useState("");
 const [followUp,setFollowUp]=useState("");
 
 const [loading,setLoading]=useState(false);
-
-
+const [resume,setResume]=useState(null);
+const [uploading,setUploading]=useState(false);
+const [parsedResume, setParsedResume] = useState(null);
+const [jobDescription, setJobDescription] = useState("");
 
 const handleStartInterview=async()=>{
 
@@ -137,8 +139,99 @@ behavior:"smooth"
 
 };
 
+const switchTopic = async()=>{
+
+try{
+
+setLoading(true);
+
+const res = await axios.post(
+"http://127.0.0.1:5001/api/switch-topic",
+{
+targetRole,
+skills,
+projects,
+interviewType,
+company,
+jobDescription
+}
+);
+
+setQuestion(res.data.reply);
+
+setAnswer("");
+setFeedback("");
+setFollowUp("");
+
+window.scrollTo({
+top:0,
+behavior:"smooth"
+});
+
+}
+catch(error){
+
+console.log(error);
+alert("Failed to switch topic");
+
+}
+finally{
+
+setLoading(false);
+
+}
+
+};
+const uploadResume = async () => {
+
+if(!resume){
+alert("Please choose a PDF resume.");
+return;
+}
+
+try{
+
+setUploading(true);
+
+const formData = new FormData();
+
+formData.append("resume", resume);
+
+const res = await axios.post(
+"http://127.0.0.1:5001/api/upload-resume",
+formData,
+{
+headers:{
+"Content-Type":"multipart/form-data"
+}
+}
+);
+
+const data = res.data;
+setParsedResume(data);
 
 
+console.log("Parsed Resume:", data);
+setSkills((data.skills || []).join(", "));
+setProjects((data.projects || []).join("\n"));
+
+alert("Resume parsed successfully!");
+
+}
+catch(error){
+
+    console.log(error);
+
+    alert(error.response?.data?.error || "Resume parsing failed.");
+
+}
+finally{
+
+setUploading(false);
+
+}
+
+};
 return(
 <div className="container">
 
@@ -154,63 +247,111 @@ Personalized Mock Interview Simulator
 
 <div className="card">
 
-<h2 className="section-title">
-Candidate Profile
-</h2>
+    <h2 className="section-title">
+        Upload Resume
+    </h2>
 
-<input
-className="input"
-type="text"
-placeholder="Target Role (Example: SDE Intern)"
-value={targetRole}
-onChange={(e)=>setTargetRole(e.target.value)}
-/>
+    <input
+        className="input"
+        type="file"
+        accept=".pdf"
+        onChange={(e) => setResume(e.target.files[0])}
+    />
 
-<textarea
-className="textarea"
-rows="4"
-placeholder="Skills (Python, React, ML...)"
-value={skills}
-onChange={(e)=>setSkills(e.target.value)}
-/>
+    <button
+        className="button"
+        onClick={uploadResume}
+        disabled={uploading}
+    >
+        {uploading ? "Parsing Resume..." : "Upload Resume"}
+    </button>
 
-<textarea
-className="textarea"
-rows="4"
-placeholder="Projects"
-value={projects}
-onChange={(e)=>setProjects(e.target.value)}
-/>
+    {parsedResume && (
+        <div
+            style={{
+                marginTop: "15px",
+                padding: "12px",
+                background: "#eef7ff",
+                borderRadius: "8px"
+            }}
+        >
 
-<select
-className="select"
-value={interviewType}
-onChange={(e)=>setInterviewType(e.target.value)}
->
-<option>HR</option>
-<option>Technical</option>
-<option>DSA</option>
-<option>System Design</option>
-<option>Machine Learning</option>
-</select>
 
-<input
-className="input"
-type="text"
-placeholder="Target Company"
-value={company}
-onChange={(e)=>setCompany(e.target.value)}
-/>
+            <b>Name:</b> {parsedResume.name || "Not Found"}
 
-<button
-className="button"
-onClick={handleStartInterview}
->
-{loading ? "Generating..." : "Start Interview"}
-</button>
+            <br />
+
+            <b>Email:</b> {parsedResume.email || "Not Found"}
+
+
+        </div>
+    )}
+
+    <hr style={{ margin: "25px 0" }} />
+
+    <h2 className="section-title">
+        Candidate Profile
+    </h2>
+
+    <input
+        className="input"
+        type="text"
+        placeholder="Target Role (Example: SDE Intern)"
+        value={targetRole}
+        onChange={(e) => setTargetRole(e.target.value)}
+    />
+
+    <textarea
+        className="textarea"
+        rows="4"
+        placeholder="Skills (Python, React, ML...)"
+        value={skills}
+        onChange={(e) => setSkills(e.target.value)}
+    />
+
+    <textarea
+        className="textarea"
+        rows="4"
+        placeholder="Projects"
+        value={projects}
+        onChange={(e) => setProjects(e.target.value)}
+    />
+
+    <select
+        className="select"
+        value={interviewType}
+        onChange={(e) => setInterviewType(e.target.value)}
+    >
+        <option>HR</option>
+        <option>Technical</option>
+        <option>DSA</option>
+        <option>System Design</option>
+        <option>Machine Learning</option>
+    </select>
+
+    <input
+        className="input"
+        type="text"
+        placeholder="Target Company"
+        value={company}
+        onChange={(e) => setCompany(e.target.value)}
+    />
+    <textarea
+        className="textarea"
+        rows="8"
+        placeholder="Paste the Job Description here (Optional)"
+        value={jobDescription}
+        onChange={(e)=>setJobDescription(e.target.value)}
+    />
+
+    <button
+        className="button"
+        onClick={handleStartInterview}
+    >
+        {loading ? "Generating..." : "Start Interview"}
+    </button>
 
 </div>
-
 
 
 {question && (
@@ -261,12 +402,29 @@ AI Feedback
 {feedback}
 </div>
 
+<div
+style={{
+display:"flex",
+gap:"10px",
+marginTop:"20px"
+}}
+>
+
 <button
 className="button continue-btn"
 onClick={continueInterview}
 >
-Continue Interview
+Continue Current Topic
 </button>
+
+<button
+className="button"
+onClick={switchTopic}
+>
+Switch Topic
+</button>
+
+</div>
 
 </div>
 )}
